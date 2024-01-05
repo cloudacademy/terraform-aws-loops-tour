@@ -1,0 +1,112 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Creating Loops in Terraform and Scaling Resources",
+  "steps": [
+    {
+      "directory": "src",
+      "description": "The **modules/ec2** directory contains an Amazon EC2 module that will be used to illustrate loops in Terraform. This module directory contains a **variables.tf** file to define certain attribute values.\n\nThis EC2 module will be configured in this lab and called in the **src/main.tf** file to deploy the resources.",
+      "title": "Directory"
+    },
+    {
+      "file": "src/modules/ec2/variables.tf",
+      "description": "The variables used in your EC2 module have already been declared for you. These variables will be used to determine conditions and provide iterable data types to configure your infrastructure.",
+      "line": 1,
+      "selection": {
+        "start": {
+          "line": 1,
+          "character": 107
+        },
+        "end": {
+          "line": 1,
+          "character": 116
+        }
+      },
+      "title": "Variables"
+    },
+    {
+      "file": "src/modules/ec2/variables.tf",
+      "description": "Notice the `ebs_block_device` variable is the type of `list(map(string))`. The `map(string)` type defines a data type that contains key-value pairs made up of only string values. Alternatively, an `object` type is a data type that can be used if each value is of a different type like booleans, integers, and strings.\n\nThe `list()` type indicates this variable will store multiple `map(string)` type variables in the list. Each of these types can be iterated using loops.\n\nIn the next steps, you will create a configuration with a loop that iterates through all \nspecified maps in the `ebs_block_device` variable and creates an EBS volume resource with their values. ",
+      "line": 12,
+      "title": "List and Map"
+    },
+    {
+      "file": "src/modules/ec2/main.tf",
+      "description": "Click **Insert Code** to add the following resource block:\n\n```js\nresource \"aws_instance\" \"server\" {\n  ami           = \"ami-0528a5175983e7f28\"\n  instance_type = \"t2.micro\"\n  associate_public_ip_address = var.associate_public_ip_address\n\n  dynamic \"ebs_block_device\" {\n    for_each = var.ebs_block_device\n      content {\n      delete_on_termination = lookup(ebs_block_device.value, \"delete_on_termination\", null)\n      device_name           = ebs_block_device.value.device_name\n      encrypted             = lookup(ebs_block_device.value, \"encrypted\", null)\n      iops                  = lookup(ebs_block_device.value, \"iops\", null)\n      kms_key_id            = lookup(ebs_block_device.value, \"kms_key_id\", null)\n      snapshot_id           = lookup(ebs_block_device.value, \"snapshot_id\", null)\n      volume_size           = lookup(ebs_block_device.value, \"volume_size\", null)\n      volume_type           = lookup(ebs_block_device.value, \"volume_type\", null)\n    }\n  }\n\n  tags = {\n      Name = \"${var.servername}\"\n  }\n}\n\n\n```",
+      "line": 36,
+      "title": "EC2 Instance"
+    },
+    {
+      "file": "src/modules/ec2/main.tf",
+      "description": "Dynamic blocks can be used for resources that contain repeatable configuration blocks. Instead of repeating several `ebs_block_device` blocks, a `dynamic` block is used to simplify the code. \n\nThe first line inside the dynamic block is a `for_each` loop. The loop is iterating through the `ebs_block_device` variable, which is a list of maps. \n\nIn the content block, each value of the map is referenced using the lookup function. The logic here is to look for a value in the map and if it's not defined, set the value to null. The dynamic block will iterate through each map in the list.",
+      "line": 19,
+      "title": "Dynamic Block"
+    },
+    {
+      "file": "src/modules/ec2/main.tf",
+      "description": "Insert the following resource:\n\n```js\nresource \"aws_eip\" \"pip\" {\n  count             = var.associate_public_ip_address ? 1 : 0\n  network_interface = aws_instance.server.primary_network_interface_id\n}\n```",
+      "line": 42,
+      "title": "Elastic IP Address"
+    },
+    {
+      "file": "src/modules/ec2/main.tf",
+      "description": "The first attribute, `count`, allows for creating multiple instances of a resource. Almost all resource blocks can use the count attribute. It is simply the number of times to create the resource block. One common use case is to utilize the `count` attribute in conditional logic.\n\nIn the `aws_eip` resource, the value of count is a conditional expression. If `var.associate_public_ip_address` is `true`, set the count value to `1`, if `false` set it to `0`. This allows resource blocks to be created conditionally. In this example, a public IP address is not created if `var.associate_public_ip_address` is set to `false`.",
+      "line": 39,
+      "title": "Count"
+    },
+    {
+      "file": "src/main.tf",
+      "description": "Call the EC2 module you just configured by inserting the following code:\n\n```js\nmodule \"server\" {\n  source = \"./modules/ec2\"\n  servername = \"testserver\"\n  associate_public_ip_address = true\n\n  ebs_block_device = [\n    {\n      device_name = \"/dev/sdh\"\n      volume_size = \"4\"\n      volume_type = \"standard\"\n      delete_on_termination = \"true\"\n    },\n    {\n      device_name = \"/dev/sdj\"\n      volume_size = \"4\"\n      volume_type = \"standard\"\n      delete_on_termination = \"true\"\n    }\n  ]\n}\n```",
+      "line": 47,
+      "title": "Module"
+    },
+    {
+      "file": "src/main.tf",
+      "description": "The `associate_public_ip_address` value is set to `true`. This boolean value will be evaluated in the EC2 module and the `count` attribute for the `aws_eip` resource will resolve to `1`.",
+      "line": 18,
+      "title": "IP Address Boolean"
+    },
+    {
+      "file": "src/main.tf",
+      "description": "The `ebs_block_device` list contains two maps. Each map contains the following attributes:\n\n- `device_name`\n- `volume_size`\n- `volume_type`\n- `delete_on_termination`\n\nRemember, any required attribute not provided with a value will be set to `null` by default.",
+      "line": 19,
+      "title": "EBS Block Device"
+    },
+    {
+      "directory": "src",
+      "description": "Click the following command to run it in a terminal window:\n\n>> cd src && terraform init\n\nThe `init` command will pull the AWS provider and initialize your EC2 module.",
+      "title": "Init"
+    },
+    {
+      "directory": "src",
+      "description": "Run the following command to view the expected Terraform plan:\n\n>> terraform plan\n\nThe plan will output 2 resources to be created. The first is the `aws_eip` resource. This resource is being created because the upstream `associate_public_ip_address` variable is set to `true`, resulting in a `count` attribute of 1.\n\nThe `aws_instance` resource is the second resource to be created. This resource will contain two `ebs_block_device` attributes for the `/dev/sdh` and `/dev/sdj` devices.",
+      "title": "Plan"
+    },
+    {
+      "file": "src/main.tf",
+      "description": "Update the `associate_public_ip_address` value to `false`.",
+      "line": 17,
+      "title": "Module Update 1"
+    },
+    {
+      "file": "src/main.tf",
+      "description": "Remove the `/dev/sdj` device from the `ebs_block_device` list. Be sure to remove the comma since the list will now only contain one device.",
+      "line": 26,
+      "title": "Module Update 2"
+    },
+    {
+      "directory": "src",
+      "description": "Run the `terraform plan` command again and observe the output.\n\nThis time, only one resource is to be created. The elastic IP address is not created because the `count` attribute now resolves to `0`.\n\nThe EC2 instance also has been updated to use only one `ebs_block_device`.",
+      "title": "Plan 2"
+    },
+    {
+      "directory": "src",
+      "description": "To deploy your resources, click to run the following command:\n\n>> terraform apply --auto-approve",
+      "title": "Apply"
+    },
+    {
+      "directory": "src",
+      "description": "You've successfully deployed an EC2 instance using the Terraform `count` attribute, as well as the `list` and `map` data types.\n\nReturn to the Cloud Academy Lab browser tab and run the validation check associated with this lab step.",
+      "title": "Complete"
+    }
+  ]
+}
